@@ -56,6 +56,30 @@ similarity = pickle.load(open('similarity.pkl', 'rb'))
 
 st.title("FILMO")
 
+# Load TMDB overviews to show on hover (fallback to tags if not found)
+try:
+    tmdb = pd.read_csv('tmdb_5000_movies.csv')
+    overview_map = pd.Series(tmdb.overview.values, index=tmdb.id).to_dict()
+except Exception:
+    overview_map = {}
+
+# Inject CSS for poster hover overlay
+st.markdown(
+    """
+    <style>
+    [data-testid="stColumn"] { padding: 0 8px; }
+    .poster-container { position: relative; width: 100%; aspect-ratio: 2/3; margin: 0; display: inline-block; }
+    .poster-img { width: 100%; height: 100%; object-fit: cover; display: block; transition: opacity 0.25s ease-in-out; }
+    .poster-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; text-align: center; padding: 8px; background: rgba(0,0,0,0.75); opacity: 0; transition: opacity 0.25s ease-in-out; overflow: hidden; }
+    .poster-overlay-text { font-size: 12px; line-height: 1.4; overflow: hidden; max-height: 100%; word-wrap: break-word; }
+    .poster-container:hover .poster-img { opacity: 0.5; }
+    .poster-container:hover .poster-overlay { opacity: 1; }
+    .poster-title { font-size: 13px; font-weight: 600; margin-top: 6px; word-wrap: break-word; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # --- Poster fetch by IMDb ID ---
 # Poster UI removed per request; recommender UI only below.
 
@@ -64,12 +88,30 @@ selected_movie = st.selectbox('Search Movie Name', movies['title'].values)
 
 if st.button('Recommend'):
     recommendations = recommend(selected_movie)
-    cols = st.columns(5)
+    cols = st.columns(5, gap='small')
+    import html as _html
     for idx, movie_title in enumerate(recommendations):
+        # find movie_id to get overview
+        try:
+            movie_id = int(movies[movies['title'] == movie_title].movie_id.iloc[0])
+        except Exception:
+            movie_id = None
+        overview = overview_map.get(movie_id) if movie_id in overview_map else None
+        if not overview:
+            # fallback to tags column if available
+            try:
+                overview = movies[movies['title'] == movie_title].tags.iloc[0]
+            except Exception:
+                overview = ''
         poster = get_poster_url(movie_title)
         with cols[idx]:
             if poster:
-                st.image(poster, width=180)
-                st.caption(movie_title)
+                safe_overview = _html.escape(overview)
+                html_block = f'''<div class="poster-container">
+                    <img class="poster-img" src="{poster}" alt="{_html.escape(movie_title)}" />
+                    <div class="poster-overlay"><div class="poster-overlay-text">{safe_overview}</div></div>
+                </div>
+                <div class="poster-title">{_html.escape(movie_title)}</div>'''
+                st.markdown(html_block, unsafe_allow_html=True)
             else:
                 st.write(movie_title)
