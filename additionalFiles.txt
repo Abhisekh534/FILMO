@@ -1,0 +1,4 @@
+movie_dict.pkl and similarity.pkl will auto generate when model.py is run
+
+data files link:
+tmdb_5000_movies.csv and tmdb_5000_credits.csv :- https://www.kaggle.com/datasets/tmdb/tmdb-movie-metadata/data
